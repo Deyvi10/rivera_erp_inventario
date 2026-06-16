@@ -1,0 +1,43 @@
+name: 🚀 Deploy Rivera ERP to Azure VPS
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Copy project to VPS
+      uses: appleboy/scp-action@v0.1.3
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_KEY }}
+        source: "."
+        target: "/home/riverad/proyecto_integrador_erp_inventario"
+
+    - name: Run deploy commands on VPS
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_KEY }}
+        script: |
+          set -e
+          cd /home/riverad/proyecto_integrador_erp_inventario
+          
+          # Inyectar archivo .env
+          printf "%s\n" "${{ secrets.ENV_FILE }}" > .env
+
+          # Instalar y compilar
+          npm install
+          npm run build
+
+          # Reiniciar PM2 con el entorno actualizado
+          pm2 restart rivera_erp_inventario-api --update-env
+          pm2 save
